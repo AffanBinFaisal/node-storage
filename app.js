@@ -19,5 +19,5 @@ try {
 app.use('/', imageRoutes);
 
 app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+    console.log(`NODE STORAGE Server is running on http://localhost:${port}`);
 });

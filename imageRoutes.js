@@ -38,6 +38,7 @@ router.get("/upload", (req, res) => {
 router.post('/upload', upload.single('image'), async (req, res) => {
   try {
     const userId = req.body.userId;
+    console.log("IMAGE SIZEEEEEEEEEEEE ",req.file.size )
     const result = await cloudinary.uploader.upload(req.file.path);
 
     const newImage = new ImageModel({
