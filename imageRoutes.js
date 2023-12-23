@@ -46,12 +46,19 @@ router.post('/upload', upload.single('image'), async (req, res) => {
         await newImage.save();
 
         console.log('IMAGE UPLOAD SUCCESSFUL. url->', result.secure_url);
-        res.status(200).json({ url: result.secure_url });
+
+        // Return file URL, size, and user id in the response
+        res.status(200).json({
+            url: result.secure_url,
+            size: req.file.size,
+            userId: userId,
+        });
     } catch (error) {
         console.log(error);
         res.status(500).send('An error occurred');
     }
 });
+
 
 
 
