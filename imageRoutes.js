@@ -47,7 +47,6 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
         console.log('IMAGE UPLOAD SUCCESSFUL. url->', result.secure_url);
 
-        // Return file URL, size, and user id in the response
         res.status(200).json({
             url: result.secure_url,
             size: req.file.size,
@@ -59,7 +58,29 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     }
 });
 
+router.delete('/remove/:imageId', async (req, res) => {
+    try {
+        const imageId = req.params.imageId;
 
+        // Find the image in the database
+        const image = await ImageModel.findById(imageId);
+
+        if (!image) {
+            return res.status(404).json({ message: 'Image not found' });
+        }
+
+        // Remove the image from Cloudinary
+        await cloudinary.uploader.destroy(image.publicId);
+
+        // Remove the image from the database
+        await ImageModel.findByIdAndRemove(imageId);
+
+        res.status(200).json({ message: 'Image removed successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('An error occurred');
+    }
+});
 
 
 
