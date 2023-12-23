@@ -4,7 +4,7 @@ const imageRoutes = require('./imageRoutes');
 
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
 // Connect to MongoDB using your provided connection string
 try {
