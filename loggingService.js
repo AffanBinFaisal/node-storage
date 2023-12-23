@@ -2,7 +2,7 @@ const axios = require('axios');
 
 async function createLogEntry(userId, transactionType, fileSize) {
   try {
-    await axios.post('http://localhost:3004/log', {
+    await axios.post('http://localhost:3002/log', {
       userId: userId,
       transactionType: transactionType,
       fileSize: fileSize,
