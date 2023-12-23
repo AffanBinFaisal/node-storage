@@ -6,7 +6,7 @@ const ImageModel = require("./models/ImageModel");
 const { createLogEntry } = require('./loggingService');
 
 const router = express.Router();
-
+const port = 3001;
 
 // Cloudinary configuration
 
@@ -35,12 +35,34 @@ router.get("/upload", (req, res) => {
 
 // Your existing image service route
 
+const axios = require('axios');
+
 router.post('/upload', upload.single('image'), async (req, res) => {
   try {
-    const userId = req.body.userId;
-    const result = await cloudinary.uploader.upload(req.file.path);
+    console.log("ALMOSTTTTTT TEHERSSS")
 
+    const userId = req.body.userId;
+    console.log("IMAGE SIZEEEEEEEEEEEE ", req.file.size);
+
+    // Check quotas with the auth service
+    console.log(`http://localhost:3003/updateQuotas/${userId}`)
+
+    const quotasCheckResponse = await axios.post(`http://localhost:3003/updateQuotas/${userId}`, {
+      amount: req.file.size,
+      type: 'upload',
+    });
+
+    console.log(quotasCheckResponse.data);
+
+    if (quotasCheckResponse.status !== 200) {
+      // If the quota check fails, return an error response
+      return res.json({ message: quotasCheckResponse.data.message });
+    }
+
+    // Quota check passed, proceed with image upload
+    const result = await cloudinary.uploader.upload(req.file.path);
     const newImage = new ImageModel({
+        public_id:result.public_id,
       userId: userId,
       imageUrl: result.secure_url,
       imageSize: req.file.size,
@@ -66,22 +88,25 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 });
 
 
-router.delete('/remove/:imageId', async (req, res) => {
+router.delete('/remove/:imageId/:publicId', async (req, res) => {
     try {
       const imageId = req.params.imageId;
+      const publicId = req.params.publicId;
   
       // Find the image in the database
       const image = await ImageModel.findById(imageId);
-  
+    console.log("Image ",image);
       if (!image) {
         return res.status(404).json({ message: 'Image not found' });
       }
   
       // Remove the image from Cloudinary
-      await cloudinary.uploader.destroy(image.publicId);
+      
+      await cloudinary.uploader.destroy(publicId);
+      console.log("destroyingggg, public ID",publicId);
   
       // Remove the image from the database
-      await ImageModel.findByIdAndRemove(imageId);
+      await ImageModel.findByIdAndDelete(imageId);
   
       // Create a log entry for image removal
       await createLogEntry(image.userId, 'Image Removal', image.imageSize);
