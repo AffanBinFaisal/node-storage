@@ -99,7 +99,6 @@ router.delete('/remove/:imageId', async (req, res) => {
 router.get('/images/:userId', async (req, res) => {
     try {
         const userId = req.params.userId;
-        
 
         // Fetch images for the specified user
         const images = await ImageModel.find({ userId: userId });
