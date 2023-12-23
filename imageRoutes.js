@@ -3,6 +3,7 @@ const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const ImageModel = require("./models/ImageModel");
+const { createLogEntry } = require('./loggingService');
 
 const router = express.Router();
 
@@ -32,55 +33,66 @@ router.get("/upload", (req, res) => {
 });
 
 
+// Your existing image service route
+
 router.post('/upload', upload.single('image'), async (req, res) => {
-    try {
-        const userId = req.body.userId;
+  try {
+    const userId = req.body.userId;
+    const result = await cloudinary.uploader.upload(req.file.path);
 
-        const result = await cloudinary.uploader.upload(req.file.path);
+    const newImage = new ImageModel({
+      userId: userId,
+      imageUrl: result.secure_url,
+      imageSize: req.file.size,
+    });
 
-        const newImage = new ImageModel({
-            userId: userId, 
-            imageUrl: result.secure_url,
-            imageSize: req.file.size,
-        });
-        await newImage.save();
+    // Save the image to the database
+    await newImage.save();
 
-        console.log('IMAGE UPLOAD SUCCESSFUL. url->', result.secure_url);
+    console.log('IMAGE UPLOAD SUCCESSFUL. url->', result.secure_url);
 
-        res.status(200).json({
-            url: result.secure_url,
-            size: req.file.size,
-            userId: userId,
-        });
-    } catch (error) {
-        console.log(error);
-        res.status(500).send('An error occurred');
-    }
+    // Create a log entry
+    await createLogEntry(userId, 'Image Upload', req.file.size);
+
+    res.status(200).json({
+      url: result.secure_url,
+      size: req.file.size,
+      userId: userId,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('An error occurred');
+  }
 });
+
 
 router.delete('/remove/:imageId', async (req, res) => {
     try {
-        const imageId = req.params.imageId;
-
-        // Find the image in the database
-        const image = await ImageModel.findById(imageId);
-
-        if (!image) {
-            return res.status(404).json({ message: 'Image not found' });
-        }
-
-        // Remove the image from Cloudinary
-        await cloudinary.uploader.destroy(image.publicId);
-
-        // Remove the image from the database
-        await ImageModel.findByIdAndRemove(imageId);
-
-        res.status(200).json({ message: 'Image removed successfully' });
+      const imageId = req.params.imageId;
+  
+      // Find the image in the database
+      const image = await ImageModel.findById(imageId);
+  
+      if (!image) {
+        return res.status(404).json({ message: 'Image not found' });
+      }
+  
+      // Remove the image from Cloudinary
+      await cloudinary.uploader.destroy(image.publicId);
+  
+      // Remove the image from the database
+      await ImageModel.findByIdAndRemove(imageId);
+  
+      // Create a log entry for image removal
+      await createLogEntry(image.userId, 'Image Removal', image.imageSize);
+  
+      res.status(200).json({ message: 'Image removed successfully' });
     } catch (error) {
-        console.error(error);
-        res.status(500).send('An error occurred');
+      console.error(error);
+      res.status(500).send('An error occurred');
     }
-});
+  });
+  
 
 
 // Route to fetch images for a particular userId
