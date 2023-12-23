@@ -1,9 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const imageRoutes = require('./imageRoutes');
-
+const cors = require('cors'); // Import the cors package
 
 const app = express();
+app.use(cors());
 const port = 3001;
 
 // Connect to MongoDB using your provided connection string
