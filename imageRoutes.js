@@ -83,5 +83,32 @@ router.delete('/remove/:imageId', async (req, res) => {
 });
 
 
+// Route to fetch images for a particular userId
+router.get('/images/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        // Fetch images for the specified user
+        const images = await ImageModel.find({ userId: userId });
+        res.status(200).json(images);
+    } catch (error) {
+        console.error('Error fetching images:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// Route to fetch all images
+router.get('/images', async (req, res) => {
+    try {
+        // Fetch all images
+        const images = await ImageModel.find();
+        res.status(200).json(images);
+    } catch (error) {
+        console.error('Error fetching images:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+
 
 module.exports = router;
