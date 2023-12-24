@@ -100,15 +100,23 @@ router.post("/upload", upload.single("image"), async (req, res) => {
   }
 });
 
-router.delete("/remove/:imageId/:publicId", async (req, res) => {
+router.delete("/remove/:imageId/:publicId/:userId", async (req, res) => {
   try {
+    console.log(req);
     const imageId = req.params.imageId;
     const publicId = req.params.publicId;
+    const userId = req.params.userId; // have to add user Id in the request body on frontend as well
+    
+    const image = await ImageModel.findById(imageId);
+    console.log("Image ", image);
+    if (!image) {
+      return res.status(404).json({ message: "Image not found" });
+    }
 
     const quotasCheckResponse = await axios.post(
       `http://localhost:3003/updateQuotas/${userId}`,
       {
-        amount: req.file.size,
+        amount: image.imageSize,
         type: "delete",
       }
     );
@@ -132,11 +140,7 @@ router.delete("/remove/:imageId/:publicId", async (req, res) => {
     }
 
     // Find the image in the database
-    const image = await ImageModel.findById(imageId);
-    console.log("Image ", image);
-    if (!image) {
-      return res.status(404).json({ message: "Image not found" });
-    }
+    
 
     // Remove the image from Cloudinary
 
@@ -169,6 +173,55 @@ router.get("/images/:userId", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+// Route to remove all images for a particular userId
+router.delete("/removeAll/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Fetch all images for the specified user
+    const images = await ImageModel.find({ userId: userId });
+
+    // Calculate the total size of images to update quotas
+    const totalImageSize = images.reduce((total, image) => total + image.imageSize, 0);
+
+    // Check quotas with the auth service
+    const quotasCheckResponse = await axios.post(
+      `http://localhost:3003/updateQuotas/${userId}`,
+      {
+        amount: totalImageSize,
+        type: "delete",
+      }
+    );
+
+    if (quotasCheckResponse.status !== 200) {
+      // Check if the quota has been exceeded
+      if (quotasCheckResponse.status === 205) {
+        return res.status(400).json({ message: "Sorry, your quota for the day has exceeded!" });
+      } else {
+        // For other errors, return a generic error message
+        return res.status(500).json({ message: "Internal server error" });
+      }
+    }
+
+    // Loop through each image and remove it from Cloudinary
+    for (const image of images) {
+      await cloudinary.uploader.destroy(image.public_id);
+    }
+
+    // Remove all images from the database
+    await ImageModel.deleteMany({ userId: userId });
+
+    // Create a log entry for image removal
+    await createLogEntry(userId, "Remove All Images", totalImageSize);
+
+    res.status(200).json({ message: "All images removed successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("An error occurred");
+  }
+});
+
 
 // Route to fetch all images
 router.get("/images", async (req, res) => {
