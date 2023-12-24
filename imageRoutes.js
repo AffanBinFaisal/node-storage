@@ -38,54 +38,66 @@ router.get("/upload", (req, res) => {
 const axios = require('axios');
 
 router.post('/upload', upload.single('image'), async (req, res) => {
-  try {
-    console.log("ALMOSTTTTTT TEHERSSS")
+    try {
+        
+      console.log("ALMOSTTTTTT TEHERSSS");
+  
+      const userId = req.body.userId;
+      console.log("IMAGE SIZEEEEEEEEEEEE ", req.file.size);
+  
+      // Check quotas with the auth service
+      console.log(`http://localhost:3003/updateQuotas/${userId}`)
+  
+      const quotasCheckResponse = await axios.post(`http://localhost:3003/updateQuotas/${userId}`, {
+        amount: req.file.size,
+        type: 'upload',
+      });
 
-    const userId = req.body.userId;
-    console.log("IMAGE SIZEEEEEEEEEEEE ", req.file.size);
+      console.log("HERE IS TEH RESPONSE DATA MESSAGE")
+      console.log(quotasCheckResponse);
+  
+      if (quotasCheckResponse.status !== 200) {
+        // Check if the quota has been exceeded
+        console.log(quotasCheckResponse.status,"AHHAHAHHAHAHAH");
 
-    // Check quotas with the auth service
-    console.log(`http://localhost:3003/updateQuotas/${userId}`)
-
-    const quotasCheckResponse = await axios.post(`http://localhost:3003/updateQuotas/${userId}`, {
-      amount: req.file.size,
-      type: 'upload',
-    });
-
-    console.log(quotasCheckResponse.data);
-
-    if (quotasCheckResponse.status !== 200) {
-      // If the quota check fails, return an error response
-      return res.json({ message: quotasCheckResponse.data.message });
+        if (quotasCheckResponse.status === 205) {
+          return res.status(400).json({ message: 'Sorry, your quota for the day has exceeded!' });
+        } else {
+          // For other errors, return a generic error message
+          return res.status(500).json({ message: 'Internal server error BHAI YEH KYA HORAHA HAI' });
+        }
+      }
+  
+      // Quota check passed, proceed with image upload
+      const result = await cloudinary.uploader.upload(req.file.path);
+      const newImage = new ImageModel({
+          public_id:result.public_id,
+        userId: userId,
+        imageUrl: result.secure_url,
+        imageSize: req.file.size,
+      });
+  
+      // Save the image to the database
+      await newImage.save();
+  
+      console.log('IMAGE UPLOAD SUCCESSFUL. url->', result.secure_url);
+  
+      // Create a log entry
+      await createLogEntry(userId, 'Image Upload', req.file.size);
+  
+      res.status(200).json({
+        url: result.secure_url,
+        size: req.file.size,
+        userId: userId,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send('An error occurred');
     }
-
-    // Quota check passed, proceed with image upload
-    const result = await cloudinary.uploader.upload(req.file.path);
-    const newImage = new ImageModel({
-        public_id:result.public_id,
-      userId: userId,
-      imageUrl: result.secure_url,
-      imageSize: req.file.size,
-    });
-
-    // Save the image to the database
-    await newImage.save();
-
-    console.log('IMAGE UPLOAD SUCCESSFUL. url->', result.secure_url);
-
-    // Create a log entry
-    await createLogEntry(userId, 'Image Upload', req.file.size);
-
-    res.status(200).json({
-      url: result.secure_url,
-      size: req.file.size,
-      userId: userId,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('An error occurred');
-  }
-});
+  });
+  
+  
+  
 
 
 router.delete('/remove/:imageId/:publicId', async (req, res) => {
