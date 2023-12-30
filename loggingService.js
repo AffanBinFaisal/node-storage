@@ -1,16 +1,17 @@
-const axios = require('axios');
+const axios = require("axios");
 
 async function createLogEntry(userId, transactionType, fileSize) {
   try {
-    await axios.post('http://localhost:3002/log', {
+    const logApiURL = process.env.LOG_SERVICE + "/log";
+    await axios.post(logApiURL, {
       userId: userId,
       transactionType: transactionType,
       fileSize: fileSize,
     });
-    console.log('Log entry created successfully');
+    console.log("Log entry created successfully");
   } catch (error) {
-    console.error('Error creating log entry:', error.message);
-    throw new Error('Failed to create log entry');
+    console.error("Error creating log entry:", error.message);
+    throw new Error("Failed to create log entry");
   }
 }
 

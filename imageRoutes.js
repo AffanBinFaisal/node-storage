@@ -43,16 +43,11 @@ router.post("/upload", upload.single("image"), async (req, res) => {
     const userId = req.body.userId;
     console.log("IMAGE SIZEEEEEEEEEEEE ", req.file.size);
 
-    // Check quotas with the auth service
-    console.log(`http://localhost:3003/updateQuotas/${userId}`);
-
-    const quotasCheckResponse = await axios.post(
-      `http://localhost:3003/updateQuotas/${userId}`,
-      {
-        amount: req.file.size,
-        type: "upload",
-      }
-    );
+    const authUrl = process.env.AUTH_SERVICE + /updateQuotas/ + userId;
+    const quotasCheckResponse = await axios.post(authUrl, {
+      amount: req.file.size,
+      type: "upload",
+    });
 
     console.log("HERE IS TEH RESPONSE DATA MESSAGE");
     console.log(quotasCheckResponse);
@@ -106,33 +101,34 @@ router.delete("/remove/:imageId/:publicId/:userId", async (req, res) => {
     const imageId = req.params.imageId;
     const publicId = req.params.publicId;
     const userId = req.params.userId; // have to add user Id in the request body on frontend as well
-    
+
     const image = await ImageModel.findById(imageId);
     console.log("Image ", image);
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
     }
 
-    const quotasCheckResponse = await axios.post(
-      `http://localhost:3003/updateQuotas/${userId}`,
-      {
-        amount: image.imageSize,
-        type: "delete",
-      }
-    );
+    const authUrl = process.env.AUTH_SERVICE + /updateQuotas/ + userId;
+    const quotasCheckResponse = await axios.post(authUrl, {
+      amount: image.imageSize,
+      type: "delete",
+    });
 
     console.log("HERE IS TEH RESPONSE DATA MESSAGE");
     console.log(quotasCheckResponse);
 
     if (quotasCheckResponse.status !== 200) {
       // Check if the quota has been exceeded
+      console.log('quota check response is ok')
 
       if (quotasCheckResponse.status === 205) {
+        console.log('if quota exceeded')
         return res
           .status(400)
           .json({ message: "Sorry, your quota for the day has exceeded!" });
       } else {
         // For other errors, return a generic error message
+        console.log('some error occured in quota checking in storage service to auth service comm.')
         return res
           .status(500)
           .json({ message: "Internal server error BHAI YEH KYA HORAHA HAI" });
@@ -140,10 +136,7 @@ router.delete("/remove/:imageId/:publicId/:userId", async (req, res) => {
     }
 
     // Find the image in the database
-    
-
     // Remove the image from Cloudinary
-
     await cloudinary.uploader.destroy(publicId);
     console.log("destroyingggg, public ID", publicId);
 
@@ -183,21 +176,24 @@ router.delete("/removeAll/:userId", async (req, res) => {
     const images = await ImageModel.find({ userId: userId });
 
     // Calculate the total size of images to update quotas
-    const totalImageSize = images.reduce((total, image) => total + image.imageSize, 0);
+    const totalImageSize = images.reduce(
+      (total, image) => total + image.imageSize,
+      0
+    );
 
     // Check quotas with the auth service
-    const quotasCheckResponse = await axios.post(
-      `http://localhost:3003/updateQuotas/${userId}`,
-      {
-        amount: totalImageSize,
-        type: "delete",
-      }
-    );
+    const authUrl = process.env.AUTH_SERVICE + /updateQuotas/ + userId;
+    const quotasCheckResponse = await axios.post(authUrl, {
+      amount: totalImageSize,
+      type: "delete",
+    });
 
     if (quotasCheckResponse.status !== 200) {
       // Check if the quota has been exceeded
       if (quotasCheckResponse.status === 205) {
-        return res.status(400).json({ message: "Sorry, your quota for the day has exceeded!" });
+        return res
+          .status(400)
+          .json({ message: "Sorry, your quota for the day has exceeded!" });
       } else {
         // For other errors, return a generic error message
         return res.status(500).json({ message: "Internal server error" });
@@ -221,7 +217,6 @@ router.delete("/removeAll/:userId", async (req, res) => {
     res.status(500).send("An error occurred");
   }
 });
-
 
 // Route to fetch all images
 router.get("/images", async (req, res) => {
